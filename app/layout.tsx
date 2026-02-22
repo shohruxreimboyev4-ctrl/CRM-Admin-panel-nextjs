@@ -5,10 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-import { ThemeProvider } from "@/components/theme-provider";
 import Header from "@/components/Header";
 
-import { useTheme } from "next-themes";
+import { ThemeProvider, useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
