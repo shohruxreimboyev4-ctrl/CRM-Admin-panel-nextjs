@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   MoreHorizontal,
   Plus,
@@ -38,12 +38,31 @@ import {
 function getCookie(name: string) {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
-  return match ? match[2] : null;
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function useDebouncedValue<T>(value: T, delay = 450) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+function normalizeGroups(data: any): any[] {
+  const result =
+    data?.groups ||
+    data?.data ||
+    data?.result ||
+    (Array.isArray(data) ? data : []);
+  return Array.isArray(result) ? result : [];
 }
 
 function formatDateTime(input: any) {
   if (!input) return "—";
 
+  // agar backend allaqachon "dd.mm.yyyy..." yuborsa
   if (typeof input === "string" && /^\d{2}\.\d{2}\.\d{4}/.test(input))
     return input;
 
@@ -65,9 +84,17 @@ export default function GroupsPage() {
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebouncedValue(searchTerm, 500);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchGroups = useCallback(async () => {
+    // ✅ oldingi request bor bo‘lsa bekor
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
 
     const token =
@@ -78,30 +105,56 @@ export default function GroupsPage() {
     const BASE_URL =
       process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:7070";
 
+    // ✅ query toza yig‘iladi
+    const params = new URLSearchParams();
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+
+    const url = `${BASE_URL}/api/group/get-all-group${
+      params.toString() ? `?${params.toString()}` : ""
+    }`;
+
     try {
-      const res = await fetch(
-        `${BASE_URL}/api/group/get-all-group?search=${encodeURIComponent(searchTerm)}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: controller.signal,
+        cache: "no-store",
+      });
 
-      const data = await res.json();
+      // ✅ json bo‘lmasa ham yiqilmaydi
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
 
-      const result =
-        data?.groups ||
-        data?.data ||
-        data?.result ||
-        (Array.isArray(data) ? data : []);
+      // ✅ ok bo‘lmasa: data log + safe fallback
+      if (!res.ok) {
+        console.error("Groups fetch error:", {
+          status: res.status,
+          statusText: res.statusText,
+          url,
+          data,
+        });
+        setGroups([]);
+        return;
+      }
 
-      setGroups(result);
-    } catch (err) {
+      setGroups(normalizeGroups(data));
+    } catch (err: any) {
+      if (err?.name === "AbortError") return; // ✅ bu normal holat
       console.error("Fetch xatosi:", err);
+      setGroups([]);
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     fetchGroups();
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [fetchGroups]);
 
   return (
@@ -260,7 +313,7 @@ export default function GroupsPage() {
 
                   return (
                     <tr
-                      key={group._id || index}
+                      key={group._id ?? `${gName}-${index}`}
                       className="group hover:bg-slate-50/80 dark:hover:bg-indigo-500/5"
                     >
                       <td className="py-6 px-8 text-xs font-black text-slate-300">
@@ -355,6 +408,16 @@ export default function GroupsPage() {
                 <tr>
                   <td colSpan={6} className="py-32 text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-indigo-500" />
+                  </td>
+                </tr>
+              )}
+
+              {!loading && groups.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-20 text-center">
+                    <p className="text-sm font-black text-slate-400">
+                      Guruh topilmadi
+                    </p>
                   </td>
                 </tr>
               )}

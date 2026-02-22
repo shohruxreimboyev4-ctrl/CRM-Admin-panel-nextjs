@@ -1,36 +1,63 @@
 import { NextResponse } from "next/server";
 
+const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password } = body || {};
 
-    const res = await fetch("http://localhost:7070/api/auth/sign-in", {
+    if (!email || !password) {
+      return NextResponse.json(
+        { message: "Email va parol kerak" },
+        { status: 400 },
+      );
+    }
+
+    if (!BASE_URL) {
+      return NextResponse.json(
+        { message: "NEXT_PUBLIC_BASE_URL env topilmadi" },
+        { status: 500 },
+      );
+    }
+
+    const res = await fetch(`${BASE_URL}/api/auth/sign-in`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
       body: JSON.stringify({ email, password }),
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       return NextResponse.json(
-        { message: data.message || "Login xatosi" },
+        { message: data?.message || "Login xatosi" },
         { status: res.status },
       );
     }
 
-    const token = data.token;
+    const token = data?.token || data?.access_token || data?.data?.token;
+    const user = data?.user || data?.data?.user || data?.data || null;
+
+    if (!token) {
+      return NextResponse.json(
+        { message: "Token kelmadi (backend javobini tekshiring)" },
+        { status: 500 },
+      );
+    }
 
     const response = NextResponse.json(
-      { success: true, user: data.user },
+      { success: true, token, user },
       { status: 200 },
     );
 
     response.cookies.set("token", token, {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
