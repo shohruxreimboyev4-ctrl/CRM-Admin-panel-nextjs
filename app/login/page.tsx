@@ -1,11 +1,9 @@
 import { Suspense } from "react";
 import LoginClient from "./LoginClient";
 
-export const dynamic = "force-dynamic";
-
-export default function Page() {
+export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen w-full" />}>
+    <Suspense fallback={<div className="p-6 text-center">Yuklanmoqda...</div>}>
       <LoginClient />
     </Suspense>
   );

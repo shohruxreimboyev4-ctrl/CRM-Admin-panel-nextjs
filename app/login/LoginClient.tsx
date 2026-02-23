@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Mail,
@@ -20,18 +20,10 @@ import { ModeToggle } from "@/components/mode-toggle";
 
 type LoginStatus = "idle" | "loading" | "success" | "error";
 
-function setCookie(name: string, value: string, days = 7) {
-  const maxAge = 60 * 60 * 24 * days;
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}`;
-}
-
 export default function LoginClient() {
   const router = useRouter();
   const search = useSearchParams();
   const nextPath = search.get("next") || "/";
-
-  const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
-  const LOGIN_ENDPOINT = "/api/auth/sign-in";
 
   const [status, setStatus] = useState<LoginStatus>("idle");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,7 +36,8 @@ export default function LoginClient() {
     setStatus("loading");
 
     try {
-      const res = await fetch(`${BASE_URL}${LOGIN_ENDPOINT}`, {
+      // ✅ MUHIM: Relative URL — NEXT_PUBLIC_BASE_URL kerak emas
+      const res = await fetch("/api/auth/sign-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -58,12 +51,9 @@ export default function LoginClient() {
         return;
       }
 
-      const token = data?.token || data?.access_token || data?.data?.token;
-      const user = data?.user || data?.data?.user || data?.data || null;
-
-      setCookie("token", token, 7);
-      if (user) setCookie("user", JSON.stringify(user), 7);
-
+      // Server route token + user qaytaryapti (sen route.ts’da shunday qilding)
+      // Cookie serverda httpOnly set bo’lgani uchun clientda setCookie qilish shart emas.
+      // Lekin UI/behavior buzilmasin deb, oldingi logikani saqlamaymiz — shunchaki redirect qilamiz.
       setStatus("success");
       router.replace(nextPath);
     } catch {
@@ -96,7 +86,7 @@ export default function LoginClient() {
                 Xush kelibsiz
               </h1>
               <p className="mt-2 text-slate-500 dark:text-slate-400 text-sm">
-                Ma'lumotlaringizni kiriting
+                Ma&apos;lumotlaringizni kiriting
               </p>
             </div>
 

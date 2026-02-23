@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+const LOGIN_ENDPOINT = "/api/auth/sign-in";
 
 export async function POST(request: Request) {
   try {
@@ -14,14 +15,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!API_URL) {
-      return NextResponse.json(
-        { message: "NEXT_PUBLIC_API_URL env topilmadi" },
-        { status: 500 },
-      );
-    }
-
-    const res = await fetch(`${API_URL}/api/auth/sign-in`, {
+    const res = await fetch(`${BASE_URL}${LOGIN_ENDPOINT}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
