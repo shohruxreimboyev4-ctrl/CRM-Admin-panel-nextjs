@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
 
 export async function POST(request: Request) {
   try {
@@ -14,14 +14,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!BASE_URL) {
+    if (!API_URL) {
       return NextResponse.json(
-        { message: "NEXT_PUBLIC_BASE_URL env topilmadi" },
+        { message: "NEXT_PUBLIC_API_URL env topilmadi" },
         { status: 500 },
       );
     }
 
-    const res = await fetch(`${BASE_URL}/api/auth/sign-in`, {
+    const res = await fetch(`${API_URL}/api/auth/sign-in`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     );
 
     response.cookies.set("token", token, {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
