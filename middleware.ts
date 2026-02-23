@@ -1,37 +1,60 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login"]; // ochiq sahifalar
+const PUBLIC_PATHS = ["/login", "/", "/_not-found"];
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // Next static/api fayllarni tepmaymiz
-  if (
+function isPublicFile(pathname: string) {
+  return (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
-    pathname.startsWith("/favicon.ico") ||
-    pathname.startsWith("/public")
-  ) {
-    return NextResponse.next();
-  }
+    pathname === "/favicon.ico" ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".jpg") ||
+    pathname.endsWith(".jpeg") ||
+    pathname.endsWith(".svg") ||
+    pathname.endsWith(".webp") ||
+    pathname.endsWith(".gif") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".css") ||
+    pathname.endsWith(".js") ||
+    pathname.endsWith(".map") ||
+    pathname.endsWith(".txt") ||
+    pathname.endsWith(".xml")
+  );
+}
 
-  // login sahifasi ochiq
-  if (PUBLIC_PATHS.includes(pathname)) {
-    return NextResponse.next();
-  }
+function isPublicPath(pathname: string) {
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
 
-  // ✅ token cookie nomi (SENDA QANDAY BO‘LSA SHUNI QO‘Y!)
-  const token =
-    req.cookies.get("token")?.value ||
+function getToken(req: NextRequest) {
+  return (
     req.cookies.get("access_token")?.value ||
-    req.cookies.get("accessToken")?.value;
+    req.cookies.get("accessToken")?.value ||
+    req.cookies.get("token")?.value ||
+    req.cookies.get("jwt")?.value
+  );
+}
 
-  // token yo‘q -> login
+export function middleware(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
+
+  if (isPublicFile(pathname)) return NextResponse.next();
+
+  if (isPublicPath(pathname)) return NextResponse.next();
+
+  const token = getToken(req);
+
   if (!token) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", pathname); // qaytib kelish uchun
+
+    if (pathname !== "/login") {
+      url.searchParams.set("next", pathname + search);
+    }
+
     return NextResponse.redirect(url);
   }
 
@@ -39,8 +62,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // hamma sahifalarda ishlasin (api/_next dan tashqari)
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
